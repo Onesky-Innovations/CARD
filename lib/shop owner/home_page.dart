@@ -62,10 +62,7 @@ class _HomePageState extends State<HomePage> {
           unselectedItemColor: _onPrimaryColor.withOpacity(0.6),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.search),
-              label: "Discover",
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
             BottomNavigationBarItem(icon: Icon(Icons.add), label: "Add Offer"),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
           ],
@@ -84,11 +81,114 @@ class _HomeTab extends StatelessWidget {
   final Color _accentColor = const Color(0xFF61dafb);
   final Color _onPrimaryColor = Colors.white;
 
+  String _formatTimestamp(Timestamp timestamp) {
+    final now = DateTime.now();
+    final date = timestamp.toDate();
+    final difference = now.difference(date);
+    if (difference.inMinutes < 60) {
+      return "${difference.inMinutes}m ago";
+    } else if (difference.inHours < 24) {
+      return "${difference.inHours}h ago";
+    } else if (difference.inDays < 30) {
+      return "${difference.inDays}d ago";
+    } else {
+      return "${date.day}/${date.month}/${date.year}";
+    }
+  }
+
+  Widget _buildOfferPost(
+      Map<String, dynamic> offer, String shopName, String uid) {
+    var images = offer['images'] ?? [];
+    var createdAt = offer['createdAt'] as Timestamp?;
+    final formattedTime = createdAt != null ? _formatTimestamp(createdAt) : "";
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: _onPrimaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Item name + time row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  offer['itemName'] ?? "Offer",
+                  style: TextStyle(
+                    color: _onPrimaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (formattedTime.isNotEmpty)
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      color: _onPrimaryColor.withOpacity(0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (images.isNotEmpty)
+            Container(
+              height: 200,
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Image.network(
+                images[0],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: _onPrimaryColor.withOpacity(0.1),
+                  child: Center(
+                    child: Icon(
+                      Icons.image_not_supported,
+                      size: 50,
+                      color: _onPrimaryColor.withOpacity(0.6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Text(
+              "Offer: ₹${offer['offerPrice'] ?? ""}",
+              style: TextStyle(
+                color: _accentColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              children: [
+                Icon(Icons.favorite_border, color: _onPrimaryColor),
+                const SizedBox(width: 16),
+                Icon(Icons.share, color: _onPrimaryColor),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final firestore = FirebaseFirestore.instance;
 
-    return FutureBuilder(
+    return FutureBuilder<DocumentSnapshot>(
       future: firestore.collection("shop_owners").doc(uid).get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -98,50 +198,61 @@ class _HomeTab extends StatelessWidget {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Center(
             child: Text(
-              "No data found",
+              "No shop data found",
               style: TextStyle(color: _onPrimaryColor),
             ),
           );
         }
 
         var data = snapshot.data!.data() as Map<String, dynamic>;
+        var shopName = data['name'] ?? 'Your Shop';
+        var shopPlace = data['place'] ?? 'Unknown Place';
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Shop info header
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: _onPrimaryColor.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _accentColor.withOpacity(0.3)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Shop: ${data['name']}",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _accentColor,
-                        ),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: _accentColor.withOpacity(0.2),
+                            child: Icon(Icons.store, color: _accentColor),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            shopName,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _accentColor,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
                       Text(
-                        "Place: ${data['place']}",
+                        shopPlace,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           color: _onPrimaryColor.withOpacity(0.8),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Text(
                   "Your Offers",
                   style: TextStyle(
@@ -152,7 +263,7 @@ class _HomeTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: StreamBuilder(
+                  child: StreamBuilder<QuerySnapshot>(
                     stream: firestore
                         .collection("shop_owners")
                         .doc(uid)
@@ -160,14 +271,15 @@ class _HomeTab extends StatelessWidget {
                         .orderBy("createdAt", descending: true)
                         .snapshots(),
                     builder: (context, offerSnapshot) {
-                      if (!offerSnapshot.hasData) {
+                      if (offerSnapshot.connectionState ==
+                          ConnectionState.waiting) {
                         return Center(
                           child: CircularProgressIndicator(color: _accentColor),
                         );
                       }
 
-                      var docs = offerSnapshot.data!.docs;
-                      if (docs.isEmpty) {
+                      if (!offerSnapshot.hasData ||
+                          offerSnapshot.data!.docs.isEmpty) {
                         return Center(
                           child: Text(
                             "No offers posted yet",
@@ -178,68 +290,14 @@ class _HomeTab extends StatelessWidget {
                         );
                       }
 
+                      var docs = offerSnapshot.data!.docs;
+
                       return ListView.builder(
                         itemCount: docs.length,
                         itemBuilder: (context, index) {
                           var offer =
                               docs[index].data() as Map<String, dynamic>;
-                          var images = offer['images'] ?? [];
-                          return Card(
-                            color: _onPrimaryColor.withOpacity(0.05),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                color: _accentColor.withOpacity(0.1),
-                              ),
-                            ),
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            child: ListTile(
-                              leading: images.isNotEmpty
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        images[0],
-                                        width: 60,
-                                        height: 60,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                Container(
-                                                  width: 60,
-                                                  height: 60,
-                                                  color: Colors.grey,
-                                                  child: Icon(
-                                                    Icons.image,
-                                                    color: _onPrimaryColor,
-                                                  ),
-                                                ),
-                                      ),
-                                    )
-                                  : Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: _onPrimaryColor.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        Icons.local_offer,
-                                        color: _onPrimaryColor,
-                                      ),
-                                    ),
-                              title: Text(
-                                offer['itemName'] ?? "",
-                                style: TextStyle(
-                                  color: _onPrimaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Text(
-                                "Offer: ₹${offer['offerPrice'] ?? ""}",
-                                style: TextStyle(color: _accentColor),
-                              ),
-                            ),
-                          );
+                          return _buildOfferPost(offer, shopName, uid);
                         },
                       );
                     },
