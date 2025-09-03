@@ -1,3 +1,4 @@
+import 'package:card/card_Holders/cardholders_signup.dart';
 import 'package:flutter/material.dart';
 
 class CardHolderPage extends StatelessWidget {
@@ -11,10 +12,27 @@ class CardHolderPage extends StatelessWidget {
         backgroundColor: const Color(0xFF1E212A),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: const Center(
-        child: Text(
-          "Card Holder Signup/Login here",
-          style: TextStyle(color: Colors.white),
+      body: Center(
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.credit_card, color: Color(0xFF1E212A)),
+          label: const Text(
+            'Sign Up as Card Holder',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFF1E212A),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CardholderSignupPage(),
+              ),
+            );
+          },
         ),
       ),
     );

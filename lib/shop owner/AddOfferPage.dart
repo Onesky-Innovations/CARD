@@ -8,7 +8,15 @@ import 'package:card/shop owner/home_page.dart';
 
 class AddOfferPage extends StatefulWidget {
   final String uid;
-  const AddOfferPage({required this.uid, super.key});
+  final Map<String, dynamic>? offerToEdit;
+  final String? offerId;
+
+  const AddOfferPage({
+    required this.uid,
+    super.key,
+    this.offerToEdit,
+    this.offerId,
+  });
 
   @override
   State<AddOfferPage> createState() => _AddOfferPageState();
@@ -17,7 +25,8 @@ class AddOfferPage extends StatefulWidget {
 class _AddOfferPageState extends State<AddOfferPage> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-  List<XFile> images = [];
+  List<XFile> newImages = []; // new images picked
+  List<String> existingImages = []; // already uploaded images
   List<String> selectedBranches = [];
   List<Map<String, dynamic>> branches = [];
 
@@ -40,6 +49,23 @@ class _AddOfferPageState extends State<AddOfferPage> {
   void initState() {
     super.initState();
     _loadBranches();
+
+    // ✅ If editing, prefill fields
+    if (widget.offerToEdit != null) {
+      final offer = widget.offerToEdit!;
+      itemNameController.text = offer['itemName'] ?? '';
+      mrpController.text = offer['mrp']?.toString() ?? '';
+      offerPriceController.text = offer['offerPrice']?.toString() ?? '';
+      descriptionController.text = offer['description'] ?? '';
+      selectedBranches = List<String>.from(offer['branches'] ?? []);
+      existingImages = List<String>.from(offer['images'] ?? []);
+      if (offer['offerStartDate'] != null) {
+        offerStartDate = (offer['offerStartDate'] as Timestamp).toDate();
+      }
+      if (offer['offerEndDate'] != null) {
+        offerEndDate = (offer['offerEndDate'] as Timestamp).toDate();
+      }
+    }
   }
 
   Future<void> _loadBranches() async {
@@ -78,7 +104,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
       final pickedImages = await _picker.pickMultiImage();
       if (!mounted) return;
       if (pickedImages.isNotEmpty) {
-        setState(() => images.addAll(pickedImages));
+        setState(() => newImages.addAll(pickedImages));
       }
     } catch (e) {
       if (!mounted) return;
@@ -105,7 +131,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
       return;
     }
 
-    // ✅ Validate dates
     if (offerStartDate == null || offerEndDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select both start and end dates")),
@@ -140,9 +165,10 @@ class _AddOfferPageState extends State<AddOfferPage> {
     );
 
     try {
-      List<String> imageUrls = [];
+      List<String> imageUrls = [...existingImages]; // keep old ones
 
-      for (var img in images) {
+      // ✅ Upload new images only
+      for (var img in newImages) {
         final ref = FirebaseStorage.instance.ref().child(
           'offers/${widget.uid}/${DateTime.now().millisecondsSinceEpoch}_${img.name}',
         );
@@ -151,27 +177,46 @@ class _AddOfferPageState extends State<AddOfferPage> {
         imageUrls.add(url);
       }
 
-      await FirebaseFirestore.instance
-          .collection("shop_owners")
-          .doc(widget.uid)
-          .collection("offers")
-          .add({
-            "itemName": itemNameController.text,
-            "mrp": mrp,
-            "offerPrice": offer,
-            "description": descriptionController.text,
-            "images": imageUrls,
-            "createdAt": Timestamp.now(),
-            "offerStartDate": Timestamp.fromDate(offerStartDate!), // ✅ required
-            "offerEndDate": Timestamp.fromDate(offerEndDate!), // ✅ required
-            "branches": selectedBranches,
-            "ownerId": widget.uid,
-          });
+      final offerData = {
+        "itemName": itemNameController.text,
+        "mrp": mrp,
+        "offerPrice": offer,
+        "description": descriptionController.text,
+        "images": imageUrls,
+        "offerStartDate": Timestamp.fromDate(offerStartDate!),
+        "offerEndDate": Timestamp.fromDate(offerEndDate!),
+        "branches": selectedBranches,
+        "ownerId": widget.uid,
+      };
+
+      if (widget.offerId == null) {
+        // ✅ Add new
+        offerData["createdAt"] = Timestamp.now();
+        await FirebaseFirestore.instance
+            .collection("shop_owners")
+            .doc(widget.uid)
+            .collection("offers")
+            .add(offerData);
+      } else {
+        // ✅ Update existing
+        await FirebaseFirestore.instance
+            .collection("shop_owners")
+            .doc(widget.uid)
+            .collection("offers")
+            .doc(widget.offerId)
+            .update(offerData);
+      }
 
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // close progress
+      Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Offer posted successfully!")),
+        SnackBar(
+          content: Text(
+            widget.offerId == null
+                ? "Offer posted successfully!"
+                : "Offer updated successfully!",
+          ),
+        ),
       );
 
       Navigator.pushAndRemoveUntil(
@@ -181,7 +226,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // close progress
+      Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -196,7 +241,10 @@ class _AddOfferPageState extends State<AddOfferPage> {
     return Scaffold(
       backgroundColor: _primaryColor,
       appBar: AppBar(
-        title: Text("Add New Offer", style: TextStyle(color: _onPrimaryColor)),
+        title: Text(
+          widget.offerId == null ? "Add New Offer" : "Edit Offer",
+          style: TextStyle(color: _onPrimaryColor),
+        ),
         backgroundColor: _primaryColor,
         iconTheme: IconThemeData(color: _onPrimaryColor),
       ),
@@ -234,6 +282,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
               ),
               const SizedBox(height: 16),
 
+              // ✅ Branches
               if (branches.isNotEmpty) ...[
                 Text(
                   "Select Branches",
@@ -262,7 +311,9 @@ class _AddOfferPageState extends State<AddOfferPage> {
                         });
                       },
                       labelStyle: TextStyle(
-                        color: isSelected ? _primaryColor : Colors.amber,
+                        color: isSelected
+                            ? _primaryColor
+                            : const Color.fromARGB(255, 0, 0, 0),
                       ),
                       backgroundColor: _onPrimaryColor.withOpacity(0.1),
                       selectedColor: _accentColor,
@@ -280,6 +331,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
                 const SizedBox(height: 16),
               ],
 
+              // ✅ Image Picker
               GestureDetector(
                 onTap: _pickImages,
                 child: Container(
@@ -313,160 +365,113 @@ class _AddOfferPageState extends State<AddOfferPage> {
               ),
               const SizedBox(height: 16),
 
-              if (images.isNotEmpty)
+              // ✅ Show existing + new images
+              if (existingImages.isNotEmpty || newImages.isNotEmpty)
                 SizedBox(
                   height: 100,
-                  child: ListView.builder(
+                  child: ListView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(images[i].path),
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() => images.removeAt(i));
-                              },
-                              child: CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.black.withOpacity(0.6),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: Colors.white,
+                    children: [
+                      ...existingImages.asMap().entries.map((entry) {
+                        int i = entry.key;
+                        String url = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  url,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() => existingImages.removeAt(i));
+                                  },
+                                  child: CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: Colors.black.withOpacity(
+                                      0.6,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        );
+                      }),
+                      ...newImages.asMap().entries.map((entry) {
+                        int i = entry.key;
+                        XFile img = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(img.path),
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() => newImages.removeAt(i));
+                                  },
+                                  child: CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: Colors.black.withOpacity(
+                                      0.6,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
                   ),
                 ),
 
-              if (images.isNotEmpty) const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-              // ✅ Offer Start Date
-              Container(
-                decoration: BoxDecoration(
-                  color: _onPrimaryColor.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _onPrimaryColor.withOpacity(0.2)),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      color: _onPrimaryColor.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      offerStartDate != null
-                          ? "Starts on ${offerStartDate!.toLocal()}".split(
-                              ' ',
-                            )[0]
-                          : "Pick start date",
-                      style: TextStyle(color: _onPrimaryColor.withOpacity(0.8)),
-                    ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2100),
-                        );
-                        if (date != null && mounted) {
-                          setState(() => offerStartDate = date);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentColor,
-                        foregroundColor: _primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                      child: const Text("Pick Date"),
-                    ),
-                  ],
-                ),
+              // ✅ Start Date
+              _buildDatePickerRow(
+                label: "Pick start date",
+                selectedDate: offerStartDate,
+                onPick: (date) => setState(() => offerStartDate = date),
               ),
               const SizedBox(height: 16),
 
-              // ✅ Offer End Date
-              Container(
-                decoration: BoxDecoration(
-                  color: _onPrimaryColor.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _onPrimaryColor.withOpacity(0.2)),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      color: _onPrimaryColor.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      offerEndDate != null
-                          ? "Ends on ${offerEndDate!.toLocal()}".split(' ')[0]
-                          : "Pick end date",
-                      style: TextStyle(color: _onPrimaryColor.withOpacity(0.8)),
-                    ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: offerStartDate ?? DateTime.now(),
-                          firstDate: offerStartDate ?? DateTime.now(),
-                          lastDate: DateTime(2100),
-                        );
-                        if (date != null && mounted) {
-                          setState(() => offerEndDate = date);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentColor,
-                        foregroundColor: _primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                      child: const Text("Pick Date"),
-                    ),
-                  ],
-                ),
+              // ✅ End Date
+              _buildDatePickerRow(
+                label: "Pick end date",
+                selectedDate: offerEndDate,
+                onPick: (date) => setState(() => offerEndDate = date),
+                firstDate: offerStartDate ?? DateTime.now(),
               ),
               const SizedBox(height: 24),
 
@@ -481,9 +486,12 @@ class _AddOfferPageState extends State<AddOfferPage> {
                   ),
                   elevation: 5,
                 ),
-                child: const Text(
-                  "Post Offer",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                child: Text(
+                  widget.offerId == null ? "Post Offer" : "Update Offer",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -527,6 +535,55 @@ class _AddOfferPageState extends State<AddOfferPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: _accentColor, width: 2),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerRow({
+    required String label,
+    required DateTime? selectedDate,
+    required Function(DateTime) onPick,
+    DateTime? firstDate,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _onPrimaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _onPrimaryColor.withOpacity(0.2)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_today, color: _onPrimaryColor.withOpacity(0.6)),
+          const SizedBox(width: 12),
+          Text(
+            selectedDate != null
+                ? "${selectedDate.toLocal()}".split(' ')[0]
+                : label,
+            style: TextStyle(color: _onPrimaryColor.withOpacity(0.8)),
+          ),
+          const Spacer(),
+          ElevatedButton(
+            onPressed: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: selectedDate ?? DateTime.now(),
+                firstDate: firstDate ?? DateTime.now(),
+                lastDate: DateTime(2100),
+              );
+              if (date != null && mounted) onPick(date);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _accentColor,
+              foregroundColor: _primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text("Pick Date"),
+          ),
+        ],
       ),
     );
   }

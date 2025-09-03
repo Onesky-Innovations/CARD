@@ -1,5 +1,4 @@
 import 'package:card/LandingPage.dart';
-import 'package:card/shop%20owner/ShopOwnerSignInPage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
