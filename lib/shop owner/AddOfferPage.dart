@@ -25,8 +25,8 @@ class AddOfferPage extends StatefulWidget {
 class _AddOfferPageState extends State<AddOfferPage> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-  List<XFile> newImages = []; // new images picked
-  List<String> existingImages = []; // already uploaded images
+  List<XFile> newImages = [];
+  List<String> existingImages = [];
   List<String> selectedBranches = [];
   List<Map<String, dynamic>> branches = [];
 
@@ -37,6 +37,17 @@ class _AddOfferPageState extends State<AddOfferPage> {
 
   DateTime? offerStartDate;
   DateTime? offerEndDate;
+
+  // ✅ Category & Subcategory
+  String? selectedCategory;
+  String? selectedSubcategory;
+
+  final Map<String, List<String>> categoryMap = {
+    "Electronics": ["Mobiles", "Laptops", "TVs"],
+    "Fashion": ["Men", "Women", "Kids"],
+    "Groceries": ["Fruits", "Vegetables", "Snacks"],
+    "Home": ["Furniture", "Decor", "Appliances"],
+  };
 
   bool _isLoading = false;
   bool _isPicking = false;
@@ -59,6 +70,8 @@ class _AddOfferPageState extends State<AddOfferPage> {
       descriptionController.text = offer['description'] ?? '';
       selectedBranches = List<String>.from(offer['branches'] ?? []);
       existingImages = List<String>.from(offer['images'] ?? []);
+      selectedCategory = offer['category'];
+      selectedSubcategory = offer['subcategory'];
       if (offer['offerStartDate'] != null) {
         offerStartDate = (offer['offerStartDate'] as Timestamp).toDate();
       }
@@ -145,6 +158,13 @@ class _AddOfferPageState extends State<AddOfferPage> {
       return;
     }
 
+    if (selectedCategory == null || selectedSubcategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select category & subcategory")),
+      );
+      return;
+    }
+
     double? mrp = double.tryParse(mrpController.text);
     double? offer = double.tryParse(offerPriceController.text);
 
@@ -167,7 +187,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
     try {
       List<String> imageUrls = [...existingImages]; // keep old ones
 
-      // ✅ Upload new images only
       for (var img in newImages) {
         final ref = FirebaseStorage.instance.ref().child(
           'offers/${widget.uid}/${DateTime.now().millisecondsSinceEpoch}_${img.name}',
@@ -187,10 +206,11 @@ class _AddOfferPageState extends State<AddOfferPage> {
         "offerEndDate": Timestamp.fromDate(offerEndDate!),
         "branches": selectedBranches,
         "ownerId": widget.uid,
+        "category": selectedCategory,
+        "subcategory": selectedSubcategory,
       };
 
       if (widget.offerId == null) {
-        // ✅ Add new
         offerData["createdAt"] = Timestamp.now();
         await FirebaseFirestore.instance
             .collection("shop_owners")
@@ -198,7 +218,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
             .collection("offers")
             .add(offerData);
       } else {
-        // ✅ Update existing
         await FirebaseFirestore.instance
             .collection("shop_owners")
             .doc(widget.uid)
@@ -261,6 +280,53 @@ class _AddOfferPageState extends State<AddOfferPage> {
                 validator: (v) => v!.isEmpty ? "Required" : null,
               ),
               const SizedBox(height: 16),
+
+              // ✅ Category Dropdown
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: _dropdownDecoration("Category"),
+                items: categoryMap.keys
+                    .map(
+                      (cat) => DropdownMenuItem<String>(
+                        value: cat,
+                        child: Text(cat),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedCategory = val;
+                    selectedSubcategory = null;
+                  });
+                },
+                validator: (v) => v == null ? "Select category" : null,
+              ),
+              const SizedBox(height: 16),
+
+              // ✅ Subcategory Dropdown
+              DropdownButtonFormField<String>(
+                value: selectedSubcategory,
+                decoration: _dropdownDecoration("Subcategory"),
+                items:
+                    (selectedCategory != null
+                            ? categoryMap[selectedCategory]!
+                            : [])
+                        .map(
+                          (sub) => DropdownMenuItem<String>(
+                            value: sub,
+                            child: Text(sub),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedSubcategory = val;
+                  });
+                },
+                validator: (v) => v == null ? "Select subcategory" : null,
+              ),
+              const SizedBox(height: 16),
+
               _buildModernTextField(
                 controller: mrpController,
                 label: "MRP",
@@ -365,7 +431,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ Show existing + new images
               if (existingImages.isNotEmpty || newImages.isNotEmpty)
                 SizedBox(
                   height: 100,
@@ -458,7 +523,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
 
               const SizedBox(height: 16),
 
-              // ✅ Start Date
               _buildDatePickerRow(
                 label: "Pick start date",
                 selectedDate: offerStartDate,
@@ -466,7 +530,6 @@ class _AddOfferPageState extends State<AddOfferPage> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ End Date
               _buildDatePickerRow(
                 label: "Pick end date",
                 selectedDate: offerEndDate,
@@ -539,6 +602,23 @@ class _AddOfferPageState extends State<AddOfferPage> {
     );
   }
 
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: _onPrimaryColor.withOpacity(0.6)),
+      filled: true,
+      fillColor: _onPrimaryColor.withOpacity(0.05),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: _accentColor, width: 2),
+      ),
+    );
+  }
+
   Widget _buildDatePickerRow({
     required String label,
     required DateTime? selectedDate,
@@ -551,39 +631,41 @@ class _AddOfferPageState extends State<AddOfferPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _onPrimaryColor.withOpacity(0.2)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.calendar_today, color: _onPrimaryColor.withOpacity(0.6)),
-          const SizedBox(width: 12),
-          Text(
-            selectedDate != null
-                ? "${selectedDate.toLocal()}".split(' ')[0]
-                : label,
-            style: TextStyle(color: _onPrimaryColor.withOpacity(0.8)),
+      child: ListTile(
+        title: Text(
+          selectedDate == null
+              ? label
+              : "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
+          style: TextStyle(
+            color: selectedDate == null
+                ? _onPrimaryColor.withOpacity(0.6)
+                : _onPrimaryColor,
           ),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: selectedDate ?? DateTime.now(),
-                firstDate: firstDate ?? DateTime.now(),
-                lastDate: DateTime(2100),
+        ),
+        trailing: Icon(Icons.calendar_today, color: _onPrimaryColor),
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: selectedDate ?? DateTime.now(),
+            firstDate: firstDate ?? DateTime(2000),
+            lastDate: DateTime(2100),
+            builder: (context, child) {
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: ColorScheme.dark(
+                    primary: _accentColor,
+                    onPrimary: _primaryColor,
+                    surface: _primaryColor,
+                    onSurface: _onPrimaryColor,
+                  ),
+                  dialogTheme: DialogThemeData(backgroundColor: _primaryColor),
+                ),
+                child: child!,
               );
-              if (date != null && mounted) onPick(date);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accentColor,
-              foregroundColor: _primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: const Text("Pick Date"),
-          ),
-        ],
+          );
+          if (picked != null) onPick(picked);
+        },
       ),
     );
   }

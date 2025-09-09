@@ -149,7 +149,7 @@ class _LandingPageState extends State<LandingPage>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CardHolderPage(),
+                      builder: (context) => const CardholderSigninPage(),
                     ),
                   );
                 },
@@ -182,3 +182,7 @@ class _LandingPageState extends State<LandingPage>
 //     );
 //   }
 // }
+
+
+
+// want:  Default behaviour → When the app opens, Home tab should show all offers that match ANY of user’s Pincode, City, or District (union, not just one filter).  Chips update → Show only icons in the chip bar.  🔥 → Trending  🏷️ → Biggest Discount  

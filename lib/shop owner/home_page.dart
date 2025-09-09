@@ -551,7 +551,7 @@ class _HomeTabState extends State<_HomeTab> {
                       alignment: Alignment.centerLeft,
                       child: Chip(
                         label: Text(
-                          'Clear Search: "${_effectiveSearchQuery}"',
+                          'Clear Search: "$_effectiveSearchQuery"',
                           style: TextStyle(color: _primaryColor),
                         ),
                         backgroundColor: _accentColor,
@@ -653,8 +653,9 @@ class _HomeTabState extends State<_HomeTab> {
                         if (filterMode == "active" && hidden) return false;
                         if (filterMode == "hidden" && !hidden) return false;
                         if (_effectiveSearchQuery.isNotEmpty &&
-                            !name.contains(_effectiveSearchQuery))
+                            !name.contains(_effectiveSearchQuery)) {
                           return false;
+                        }
                         return true;
                       }).toList();
 

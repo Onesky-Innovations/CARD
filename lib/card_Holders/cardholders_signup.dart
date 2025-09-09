@@ -72,14 +72,15 @@ class _CardholderSignupPageState extends State<CardholderSignupPage> {
       );
       final uid = userCredential.user!.uid;
 
-      // Save in Firestore
-      await _firestore.collection('cardholders').doc(uid).set({
+      // Save main profile in card_holders collection
+      await _firestore.collection('card_holders').doc(uid).set({
         'name': nameController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // Save detailed profile in subcollection
       await _firestore
-          .collection('cardholders')
+          .collection('card_holders')
           .doc(uid)
           .collection('details')
           .doc('profile')
