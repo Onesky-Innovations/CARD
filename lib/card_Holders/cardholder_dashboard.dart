@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'product_detail_screen.dart';
+import '../Silver.dart';
 
 // 🎨 A clean, minimalist color palette
 const Color primaryColor = Color(
@@ -617,38 +618,120 @@ class _CardholderDashboardState extends State<CardholderDashboard> {
     );
   }
 
-  // ---------------- Tabs ----------------
+  // //---------------- Tabs ----------------
+
+  // Widget _buildHomeTab() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       _buildHeader(),
+  //       const SizedBox(height: 12),
+  //       _buildQuickActions(),
+  //       const SizedBox(height: 8),
+  //       Padding(
+  //         padding: const EdgeInsets.symmetric(horizontal: 16),
+  //         child: Row(
+  //           children: const [
+  //             Text(
+  //               "Best Sale Product",
+  //               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+  //             ),
+  //             Spacer(),
+  //             Text(
+  //               "See more",
+  //               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //       const SizedBox(height: 8),
+  //       _buildSortChips(),
+  //       const SizedBox(height: 8),
+  //       _buildOffersGrid(),
+  //     ],
+  //   );
+  // }
+
+  //---------------- Tabs ----------------
+
   Widget _buildHomeTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(),
-        const SizedBox(height: 12),
-        _buildQuickActions(),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: const [
-              Text(
-                "Best Sale Product",
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+  return Column(
+    children: [
+      _buildHeader(), // stays fixed, never scrolls
+      Expanded(
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: const SizedBox(height: 12)),
+            SliverToBoxAdapter(child: _buildQuickActions()),
+            SliverToBoxAdapter(child: const SizedBox(height: 8)),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: const [
+                    Text(
+                      "Best Sale Product",
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
+                    Spacer(),
+                    Text(
+                      "See more",
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-              Spacer(),
-              Text(
-                "See more",
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-              ),
-            ],
-          ),
+            ),
+            SliverToBoxAdapter(child: const SizedBox(height: 8)),
+            SliverToBoxAdapter(child: _buildSortChips()),
+            SliverToBoxAdapter(child: const SizedBox(height: 8)),
+
+            // Offers grid
+            StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collectionGroup("offers").snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const SliverToBoxAdapter(
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final offers = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  data["_docPath"] = doc.reference.path;
+                  return data;
+                }).toList();
+
+                return SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final data = offers[index];
+                      return _OfferCard(
+                        data: data,
+                        saved: false,
+                        onToggleSave: (_) {},
+                        onTap: () {},
+                      );
+                    },
+                    childCount: offers.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.68,
+                  ),
+                );
+              },
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        _buildSortChips(),
-        const SizedBox(height: 8),
-        _buildOffersGrid(),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
+//----------------- Saved Tab ----------------
 
   Widget _buildSavedTab() {
     final uid = _auth.currentUser?.uid;
@@ -877,6 +960,7 @@ class _CardholderDashboardState extends State<CardholderDashboard> {
       currentTab = _buildSpecialsTab();
     } else {
       currentTab = _buildProfileTab();
+      // currentTab = MyHomeScreen();
     }
 
     return Scaffold(
