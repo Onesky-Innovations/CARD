@@ -1,3 +1,4 @@
+// lib/card/card_Holders/widgets/offer_card.dart
 import 'package:flutter/material.dart';
 
 class OfferCard extends StatelessWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:card/card_Holders/cardholders_signup.dart';
-import 'package:card/card_Holders/cardholder_dashboard.dart'; // <-- import dashboard
+import 'package:card/card_Holders/dashboard/cardholder_dashboard.dart'; // <-- import dashboard
 
 class CardholderSigninPage extends StatefulWidget {
   const CardholderSigninPage({super.key});
