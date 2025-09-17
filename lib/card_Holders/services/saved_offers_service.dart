@@ -35,11 +35,7 @@ class SavedOffersService {
         .collection("saved_offers")
         .orderBy("savedAt", descending: true)
         .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((doc) => doc.data() as Map<String, dynamic>)
-              .toList(),
-        );
+        .map((snap) => snap.docs.map((doc) => doc.data()).toList());
   }
 
   Future<void> toggleSaveForOffer(

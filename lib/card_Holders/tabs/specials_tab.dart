@@ -6,7 +6,7 @@ class SpecialsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -17,7 +17,7 @@ class SpecialsTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collectionGroup("vouchers").snapshots(),
+          stream: firestore.collectionGroup("vouchers").snapshots(),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(
@@ -43,7 +43,7 @@ class SpecialsTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collectionGroup("promo_codes").snapshots(),
+          stream: firestore.collectionGroup("promo_codes").snapshots(),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(
